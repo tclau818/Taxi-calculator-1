@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>香港的士司機收入計算器 (Taxi Income Tracker)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        taxiyellow: '#F5C518',
+                        taxidark: '#1E232A',
+                        taxared: '#E11D48',
+                        taxagreen: '#059669',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 4px;
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 pb-16 select-none">
+
+    <!-- Header Navigation -->
+    <header class="bg-taxidark text-white sticky top-0 z-40 shadow-md">
+        <div class="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <div class="bg-taxiyellow text-taxidark p-1.5 rounded-lg font-black flex items-center justify-center">
+                    <i class="fa-solid fa-taxi text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold tracking-wide leading-tight text-taxiyellow">的士收入計數易</h1>
+                    <p class="text-[10px] text-slate-400">HK Taxi Driver Income Tracker</p>
+                </div>
+            </div>
+            <div class="text-right">
+                <div id="headerDateDisplay" class="text-xs font-semibold text-slate-200"></div>
+                <div id="headerShiftBadge" class="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full inline-block mt-0.5 border border-amber-500/30">日更</div>
+            </div>
+        </div>
+
+        <!-- Main Tabs Navigation -->
+        <nav class="flex border-t border-slate-700/60 bg-taxidark text-xs font-medium">
+            <button onclick="switchTab('daily')" id="tab-daily" class="flex-1 py-2.5 text-center text-taxiyellow border-b-2 border-taxiyellow font-bold flex items-center justify-center space-x-1 transition">
+                <i class="fa-regular fa-calendar-check text-sm"></i>
+                <span>每日行程</span>
+            </button>
+            <button onclick="switchTab('monthly')" id="tab-monthly" class="flex-1 py-2.5 text-center text-slate-400 hover:text-slate-200 flex items-center justify-center space-x-1 transition">
+                <i class="fa-solid fa-chart-line text-sm"></i>
+                <span>按月匯總</span>
+            </button>
+            <button onclick="switchTab('backup')" id="tab-backup" class="flex-1 py-2.5 text-center text-slate-400 hover:text-slate-200 flex items-center justify-center space-x-1 transition">
+                <i class="fa-solid fa-sliders text-sm"></i>
+                <span>數據與備份</span>
+            </button>
+        </nav>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-3xl mx-auto p-3 sm:p-4 space-y-4">
+
+        <!-- ================= TAB 1: DAILY LOG (每日行程) ================= -->
+        <div id="view-daily" class="space-y-4">
+
+            <!-- Shift & Vehicle Header Card -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
+                <div class="flex justify-between items-center border-b pb-2 border-slate-100">
+                    <span class="text-xs font-bold uppercase text-slate-400 tracking-wider"><i class="fa-solid fa-id-card mr-1"></i>當日開工資料</span>
+                    <button onclick="toggleShiftEdit()" class="text-xs text-amber-600 font-semibold hover:underline">
+                        <i class="fa-solid fa-pen-to-square mr-0.5"></i>編輯基本資料
+                    </button>
+                </div>
+
+                <!-- Shift Info View -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <span class="text-slate-400 block text-[10px]">日期</span>
+                        <input type="date" id="dailyDateInput" onchange="onDailyDateChange()" class="font-bold text-slate-700 bg-transparent w-full focus:outline-none">
+                    </div>
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <span class="text-slate-400 block text-[10px]">車牌 / 班次</span>
+                        <div class="font-bold text-slate-700 truncate" id="dispPlateShift">--</div>
+                    </div>
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <span class="text-slate-400 block text-[10px]">開工 ➔ 收工時間</span>
+                        <div class="font-bold text-slate-700 truncate" id="dispShiftTimes">--:-- ➔ --:--</div>
+                    </div>
+                    <div class="bg-amber-50 p-2.5 rounded-xl border border-amber-100">
+                        <span class="text-amber-700 block text-[10px]">總行車里數 (km)</span>
+                        <div class="font-black text-amber-800 text-sm" id="dispTotalMileage">0 km</div>
+                    </div>
+                </div>
+
+                <!-- Hidden Shift Edit Drawer -->
+                <div id="shiftEditDrawer" class="hidden pt-2 border-t border-dashed border-slate-200 space-y-3 text-xs">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-slate-500 mb-1">車牌號碼 (Taxi License Plate)</label>
+                            <input type="text" id="inputPlate" placeholder="例如: AB1234" class="w-full p-2 border border-slate-300 rounded-lg uppercase font-bold text-slate-700">
+                        </div>
+                        <div>
+                            <label class="block text-slate-500 mb-1">班次 (Shift)</label>
+                            <select id="inputShift" onchange="updateShiftBadge()" class="w-full p-2 border border-slate-300 rounded-lg font-bold text-slate-700 bg-white">
+                                <option value="日更">日更 (Day Shift)</option>
+                                <option value="夜更">夜更 (Night Shift)</option>
+                                <option value="特更">特更 (Full Shift)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-slate-500 mb-1">開工時間</label>
+                            <input type="time" id="inputStartTime" value="07:00" class="w-full p-2 border border-slate-300 rounded-lg font-medium text-slate-700">
+                        </div>
+                        <div>
+                            <label class="block text-slate-500 mb-1">收工時間</label>
+                            <input type="time" id="inputEndTime" value="17:00" class="w-full p-2 border border-slate-300 rounded-lg font-medium text-slate-700">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-slate-500 mb-1">開工起標號碼 (km)</label>
+                            <input type="number" id="inputOdoStart" placeholder="120000" oninput="calcMileage()" class="w-full p-2 border border-slate-300 rounded-lg font-medium text-slate-700">
+                        </div>
+                        <div>
+                            <label class="block text-slate-500 mb-1">收工落標號碼 (km)</label>
+                            <input type="number" id="inputOdoEnd" placeholder="120250" oninput="calcMileage()" class="w-full p-2 border border-slate-300 rounded-lg font-medium text-slate-700">
+                        </div>
+                    </div>
+                    <button onclick="saveShiftHeader()" class="w-full py-2 bg-slate-800 text-white rounded-lg font-bold hover:bg-slate-900 transition">儲存班次資料</button>
+                </div>
+            </div>
+
+            <!-- Quick Add Trip Button Bar -->
+            <div class="flex justify-between items-center px-1">
+                <h2 class="font-bold text-slate-800 text-sm flex items-center">
+                    <i class="fa-solid fa-list-ol text-amber-500 mr-2"></i>行程紀錄 (<span id="tripListCount">0</span> 筆)
+                </h2>
+                <button onclick="openTripModal()" class="px-3.5 py-2 bg-taxiyellow hover:bg-amber-400 active:bg-amber-500 text-taxidark font-bold rounded-xl shadow-sm text-xs flex items-center space-x-1.5 transition">
+                    <i class="fa-solid fa-plus text-sm"></i>
+                    <span>新增行程 (Add Trip)</span>
+                </button>
+            </div>
+
+            <!-- Trip Records Dynamic List -->
+            <div id="dailyTripList" class="space-y-2">
+                <!-- Trips will be rendered here dynamically -->
+            </div>
+
+            <!-- Daily Summary & Expenses Breakdown Cards -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-4">
+                <h3 class="font-bold text-slate-800 text-sm border-b pb-2 border-slate-100 flex items-center">
+                    <i class="fa-solid fa-calculator text-slate-600 mr-2"></i>當日結算與營業開支
+                </h3>
+
+                <!-- Revenue Totals Aggregation -->
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                        <span class="text-emerald-700 block font-medium">💵 現金總收入</span>
+                        <div class="text-lg font-black text-emerald-800 mt-1" id="dailyCashTotal">$0.0</div>
+                    </div>
+                    <div class="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                        <span class="text-blue-700 block font-medium">💳 電子支付總收入</span>
+                        <div class="text-lg font-black text-blue-800 mt-1" id="dailyEpayTotal">$0.0</div>
+                    </div>
+                </div>
+
+                <!-- Payment Method Breakdown Badges -->
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <div class="text-[11px] font-bold text-slate-500 mb-2 flex justify-between">
+                        <span>分支付方式明細小計</span>
+                        <span class="text-[10px] text-slate-400">自動分類</span>
+                    </div>
+                    <div class="grid grid-cols-3 sm:grid-cols-5 gap-1.5 text-[11px]" id="payBreakdownGrid">
+                        <!-- Dynamic payment badges inserted here -->
+                    </div>
+                </div>
+
+                <!-- Extra Tips & Other Revenue Input -->
+                <div class="flex items-center space-x-2 text-xs bg-amber-50/60 p-2.5 rounded-xl border border-amber-200">
+                    <label class="font-bold text-amber-900 whitespace-nowrap">額外小費 / 其他收入 ($):</label>
+                    <input type="number" id="inputDailyTips" placeholder="0.0" oninput="calculateDailyFinances()" inputmode="decimal" class="w-full bg-white px-2 py-1 border border-amber-300 rounded-lg font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500">
+                </div>
+
+                <!-- Total Daily Gross Revenue (A) -->
+                <div class="bg-emerald-100/60 p-3 rounded-xl border border-emerald-200 flex justify-between items-center">
+                    <span class="text-xs font-bold text-emerald-900">當日總營業額 (A) Total Gross Revenue</span>
+                    <span class="text-xl font-black text-emerald-700" id="dailyGrossRevenueA">$0.0</span>
+                </div>
+
+                <!-- Expenses Inputs (B) -->
+                <div class="space-y-2 pt-2 border-t border-slate-100">
+                    <div class="text-xs font-bold text-rose-700 flex justify-between items-center">
+                        <span>💸 當日營業開支扣除 (Expenses)</span>
+                        <span class="text-[10px] text-slate-400 font-normal">輸入司機成本</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                            <label class="block text-slate-500 mb-1">車租 (Taxi Rent)</label>
+                            <div class="relative">
+                                <span class="absolute left-2.5 top-1.5 text-slate-400 font-bold">$</span>
+                                <input type="number" id="expRent" placeholder="0" oninput="calculateDailyFinances()" inputmode="decimal" class="w-full pl-6 pr-2 py-1.5 border border-slate-300 rounded-lg font-bold text-slate-800">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-slate-500 mb-1">入油 / 充電費 (Fuel)</label>
+                            <div class="relative">
+                                <span class="absolute left-2.5 top-1.5 text-slate-400 font-bold">$</span>
+                                <input type="number" id="expFuel" placeholder="0" oninput="calculateDailyFinances()" inputmode="decimal" class="w-full pl-6 pr-2 py-1.5 border border-slate-300 rounded-lg font-bold text-slate-800">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-slate-500 mb-1">自付隧道費 (Toll)</label>
+                            <div class="relative">
+                                <span class="absolute left-2.5 top-1.5 text-slate-400 font-bold">$</span>
+                                <input type="number" id="expTolls" placeholder="0" oninput="calculateDailyFinances()" inputmode="decimal" class="w-full pl-6 pr-2 py-1.5 border border-slate-300 rounded-lg font-bold text-slate-800">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-slate-500 mb-1">洗車 / 雜項 (Misc)</label>
+                            <div class="relative">
+                                <span class="absolute left-2.5 top-1.5 text-slate-400 font-bold">$</span>
+                                <input type="number" id="expMisc" placeholder="0" oninput="calculateDailyFinances()" inputmode="decimal" class="w-full pl-6 pr-2 py-1.5 border border-slate-300 rounded-lg font-bold text-slate-800">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Total Expenses (B) -->
+                    <div class="bg-rose-50 p-3 rounded-xl border border-rose-200 flex justify-between items-center text-xs">
+                        <span class="font-bold text-rose-900">當日總開支 (B) Total Expenses</span>
+                        <span class="text-base font-bold text-rose-700" id="dailyTotalExpensesB">$0.0</span>
+                    </div>
+                </div>
+
+                <!-- Daily Net Profit Banner (A - B) -->
+                <div class="bg-taxidark text-white p-4 rounded-2xl shadow-lg border-2 border-taxiyellow flex justify-between items-center">
+                    <div>
+                        <div class="text-xs font-semibold text-taxiyellow uppercase tracking-wider">🎯 今日純利 (Daily Net Profit)</div>
+                        <div class="text-[10px] text-slate-400">(總營業額 A - 總開支 B)</div>
+                    </div>
+                    <div class="text-2xl sm:text-3xl font-black text-taxiyellow font-mono" id="dailyNetProfitDisplay">$0.0</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================= TAB 2: MONTHLY SUMMARY (按月匯總) ================= -->
+        <div id="view-monthly" class="hidden space-y-4">
+
+            <!-- Month & Year Picker Bar -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-calendar-days text-amber-500 text-lg"></i>
+                    <span class="font-bold text-slate-800 text-sm">選擇月份:</span>
+                </div>
+                <div class="flex space-x-2">
+                    <select id="monthlyYearSelect" onchange="renderMonthlyView()" class="p-2 border border-slate-300 rounded-xl font-bold text-slate-700 text-xs bg-slate-50 focus:outline-none">
+                        <!-- Dynamic year options -->
+                    </select>
+                    <select id="monthlyMonthSelect" onchange="renderMonthlyView()" class="p-2 border border-slate-300 rounded-xl font-bold text-slate-700 text-xs bg-slate-50 focus:outline-none">
+                        <!-- Dynamic month options -->
+                    </select>
+                </div>
+            </div>
+
+            <!-- Monthly Summary Stat Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm text-center">
+                    <span class="text-[10px] text-slate-400 font-bold block uppercase">月度總營業額</span>
+                    <div class="text-lg font-black text-emerald-600 mt-1" id="mStatGross">$0</div>
+                </div>
+                <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm text-center">
+                    <span class="text-[10px] text-slate-400 font-bold block uppercase">月度總開支</span>
+                    <div class="text-lg font-black text-rose-600 mt-1" id="mStatExpenses">$0</div>
+                </div>
+                <div class="bg-taxidark p-3 rounded-2xl border border-taxiyellow shadow-md text-center text-white col-span-2 sm:col-span-1">
+                    <span class="text-[10px] text-taxiyellow font-bold block uppercase">月度總純利</span>
+                    <div class="text-xl font-black text-taxiyellow mt-1" id="mStatNet">$0</div>
+                </div>
+                <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm text-center col-span-2 sm:col-span-1">
+                    <span class="text-[10px] text-slate-400 font-bold block uppercase">平均每日純利</span>
+                    <div class="text-lg font-black text-blue-600 mt-1" id="mStatAvg">$0 / 日</div>
+                </div>
+            </div>
+
+            <!-- Payment Method Monthly Breakdown -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
+                <h3 class="font-bold text-slate-800 text-xs flex justify-between items-center">
+                    <span>💳 各支付方式月度比例明細</span>
+                    <span class="text-[10px] font-normal text-slate-400" id="mPayMethodTotalLabel">總計: $0</span>
+                </h3>
+                <div id="mPayMethodBars" class="space-y-2 text-xs">
+                    <!-- Progress bars for payment breakdown will go here -->
+                </div>
+            </div>
+
+            <!-- Daily Breakdown Table -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-800 text-xs">📅 當月每日明細表 (1號 - 31號)</h3>
+                    <span class="text-[10px] text-slate-400">點擊整行快速跳轉編輯</span>
+                </div>
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left text-xs whitespace-nowrap">
+                        <thead class="bg-slate-100 text-slate-500 font-semibold border-b border-slate-200">
+                            <tr>
+                                <th class="p-2.5 text-center">日期</th>
+                                <th class="p-2.5">班次</th>
+                                <th class="p-2.5 text-right">營業額 ($)</th>
+                                <th class="p-2.5 text-right">開支 ($)</th>
+                                <th class="p-2.5 text-right">純利 ($)</th>
+                                <th class="p-2.5">主要支付</th>
+                                <th class="p-2.5 text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mDailyTableBody" class="divide-y divide-slate-100 text-slate-700 font-medium">
+                            <!-- Rows injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================= TAB 3: BACKUP & DATA (數據與備份) ================= -->
+        <div id="view-backup" class="hidden space-y-4">
+
+            <!-- Data Management Cards -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-4">
+                <h3 class="font-bold text-slate-800 text-sm border-b pb-2 border-slate-100 flex items-center">
+                    <i class="fa-solid fa-database text-blue-500 mr-2"></i>數據匯出與備份 (Data Export & Backup)
+                </h3>
+
+                <p class="text-xs text-slate-500 leading-relaxed">
+                    所有資料均完整保存在您手機/電腦的瀏覽器中 (LocalStorage)。建議定期下載 JSON 備份檔，或匯出 CSV 以便用 Microsoft Excel / Google Sheets 進行更詳細的統計分析。
+                </p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <!-- Export CSV -->
+                    <button onclick="exportToCSV()" class="p-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl border border-emerald-200 flex items-center space-x-3 text-left transition">
+                        <div class="w-10 h-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-lg">
+                            <i class="fa-solid fa-file-excel"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-xs">匯出 Excel CSV 報表</div>
+                            <div class="text-[10px] text-emerald-600">包含每日明細與行程總表</div>
+                        </div>
+                    </button>
+
+                    <!-- Export JSON -->
+                    <button onclick="exportBackupJSON()" class="p-3 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-xl border border-blue-200 flex items-center space-x-3 text-left transition">
+                        <div class="w-10 h-10 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-lg">
+                            <i class="fa-solid fa-file-code"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-xs">下載 JSON 數據備份檔</div>
+                            <div class="text-[10px] text-blue-600">完整備份所有行程與設定</div>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Restore Backup JSON -->
+                <div class="pt-3 border-t border-slate-100 space-y-2">
+                    <label class="block text-xs font-bold text-slate-700">還原 JSON 備份數據 (Restore Backup)</label>
+                    <input type="file" id="importFileInput" accept=".json" class="block w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-white hover:file:bg-slate-900">
+                    <button onclick="importBackupJSON()" class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition">
+                        <i class="fa-solid fa-upload mr-1"></i>執行還原
+                    </button>
+                </div>
+            </div>
+
+            <!-- Clear / Preset System Data -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-rose-200 space-y-3">
+                <h3 class="font-bold text-rose-700 text-xs flex items-center">
+                    <i class="fa-solid fa-triangle-exclamation mr-2"></i>系統管理與重置
+                </h3>
+                <div class="flex space-x-2">
+                    <button onclick="loadSampleExcelData()" class="flex-1 py-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 font-bold rounded-xl text-xs transition">
+                        <i class="fa-solid fa-rotate-right mr-1"></i>載入 Excel 範例數據
+                    </button>
+                    <button onclick="clearAllSystemData()" class="flex-1 py-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 font-bold rounded-xl text-xs transition">
+                        <i class="fa-solid fa-trash-can mr-1"></i>清空所有系統紀錄
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- ================= MODAL: ADD / EDIT TRIP (新增/編輯行程) ================= -->
+    <div id="tripModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
+        <div class="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            
+            <!-- Modal Header -->
+            <div class="bg-taxidark text-white p-4 flex justify-between items-center border-b-2 border-taxiyellow">
+                <h3 class="font-bold text-sm text-taxiyellow flex items-center" id="modalTitle">
+                    <i class="fa-solid fa-taxi mr-2"></i>新增行程紀錄
+                </h3>
+                <button onclick="closeTripModal()" class="text-slate-400 hover:text-white text-lg px-2">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body (Scrollable) -->
+            <div class="p-4 overflow-y-auto space-y-4 text-xs">
+
+                <!-- Hidden Input for Editing -->
+                <input type="hidden" id="modalTripId" value="">
+
+                <!-- Time Input -->
+                <div>
+                    <label class="block text-slate-500 font-semibold mb-1">時間 (Time)</label>
+                    <input type="time" id="modalTripTime" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+                </div>
+
+                <!-- Locations & Landmark Chips -->
+                <div class="space-y-2">
+                    <label class="block text-slate-500 font-semibold">起點 ➔ 終點 (Pickup & Dropoff)</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="modalPickup" placeholder="起點 (例如: 元朗形點)" class="p-2.5 border border-slate-300 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                        <input type="text" id="modalDropoff" placeholder="終點 (例如: 海港城)" class="p-2.5 border border-slate-300 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    </div>
+
+                    <!-- Landmark Preset Chips -->
+                    <div>
+                        <span class="text-[10px] text-slate-400 block mb-1">地標常用快選 (點擊帶入終點):</span>
+                        <div class="flex flex-wrap gap-1.5" id="landmarkChips">
+                            <!-- Preset chips generated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fare & Surcharges Inputs -->
+                <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <div>
+                        <label class="block text-slate-600 font-bold mb-1">錶費收入 ($ Meter Fare)</label>
+                        <input type="number" id="modalMeterFare" placeholder="0.0" oninput="calcModalSum()" inputmode="decimal" class="w-full p-2.5 border border-slate-300 rounded-xl font-black text-slate-800 text-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    </div>
+                    <div>
+                        <label class="block text-slate-600 font-bold mb-1">附加費/隧道費 ($ Tolls)</label>
+                        <input type="number" id="modalSurcharge" placeholder="0.0" oninput="calcModalSum()" inputmode="decimal" class="w-full p-2.5 border border-slate-300 rounded-xl font-black text-slate-800 text-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    </div>
+                    <div class="col-span-2 flex justify-between items-center bg-amber-100/70 p-2.5 rounded-lg border border-amber-200">
+                        <span class="font-bold text-amber-900">單筆總金額 (Auto Sum):</span>
+                        <span class="text-xl font-black text-amber-800" id="modalTotalSum">$0.0</span>
+                    </div>
+                </div>
+
+                <!-- Payment Method Select Grid (Enhanced Options) -->
+                <div>
+                    <label class="block text-slate-500 font-semibold mb-1.5">支付方式 (Payment Method)</label>
+                    <div class="grid grid-cols-3 gap-2" id="modalPayGrid">
+                        <!-- Dynamic payment method selector buttons -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-3 bg-slate-100 border-t border-slate-200 flex space-x-2">
+                <button type="button" onclick="closeTripModal()" class="w-1/3 py-3 bg-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-300 transition">取消</button>
+                <button type="button" onclick="saveTripModal()" class="w-2/3 py-3 bg-taxiyellow hover:bg-amber-400 active:bg-amber-500 text-taxidark font-black rounded-xl shadow-md transition text-sm">
+                    <i class="fa-solid fa-check mr-1"></i>儲存行程紀錄
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-4 py-2.5 rounded-full text-xs font-semibold shadow-2xl transition-all duration-300 opacity-0 pointer-events-none z-50 flex items-center space-x-2">
+        <i class="fa-solid fa-circle-check text-taxiyellow"></i>
+        <span id="toastMsg">提示訊息</span>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Global App Constants & Options
+        const PAYMENT_METHODS = [
+            { id: 'Cash', label: '現金', icon: 'fa-money-bill-wave', color: 'bg-emerald-50 border-emerald-300 text-emerald-800' },
+            { id: 'Octopus', label: '八達通', icon: 'fa-regular fa-credit-card', color: 'bg-amber-50 border-amber-300 text-amber-800' },
+            { id: 'Alipay', label: '支付寶', icon: 'fa-brands fa-alipay', color: 'bg-sky-50 border-sky-300 text-sky-800' },
+            { id: 'PayMe', label: 'PayMe', icon: 'fa-solid fa-p', color: 'bg-rose-50 border-rose-300 text-rose-800' },
+            { id: 'FPS', label: '轉數快', icon: 'fa-solid fa-bolt', color: 'bg-orange-50 border-orange-300 text-orange-800' },
+            { id: 'Uber', label: 'Uber', icon: 'fa-solid fa-car', color: 'bg-slate-100 border-slate-400 text-slate-900' },
+            { id: 'WeChat', label: '微信支付', icon: 'fa-brands fa-weixin', color: 'bg-emerald-50 border-emerald-400 text-emerald-800' },
+            { id: 'Card', label: '信用卡', icon: 'fa-solid fa-credit-card', color: 'bg-indigo-50 border-indigo-300 text-indigo-800' },
+            { id: 'Other', label: '其他', icon: 'fa-solid fa-ellipsis', color: 'bg-slate-50 border-slate-300 text-slate-700' }
+        ];
+
+        const PRESET_LANDMARKS = [
+            "元朗形點", "尖沙咀海港城", "中環 LKF", "香港國際機場", "觀塘 APM", 
+            "旺角朗豪坊", "銅鑼灣 SOGO", "西區海底隧道", "紅磡海底隧道", "東區海底隧道", "迪士尼樂園"
+        ];
+
+        // Central State Engine
+        let appState = {
+            currentDateStr: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
+            dailyShiftData: {}, // Map by YYYY-MM-DD
+            selectedModalPayMethod: 'Cash'
+        };
+
+        // Application Initialization
+        window.onload = function() {
+            loadStateFromStorage();
+
+            // If empty, pre-populate sample data matching user's Excel prompt
+            if (Object.keys(appState.dailyShiftData).length === 0) {
+                loadSampleExcelData(false);
+            }
+
+            // Set default date input to today
+            document.getElementById('dailyDateInput').value = appState.currentDateStr;
+            
+            // Render UI
+            updateShiftHeaderView();
+            renderDailyTrips();
+            calculateDailyFinances();
+            initLandmarkChips();
+            initMonthlySelectors();
+
+            // Setup Import Listener
+            document.getElementById('importFileInput').addEventListener('change', importBackupJSON);
+        };
+
+        // --- Navigation Logic ---
+        function switchTab(tab) {
+            ['daily', 'monthly', 'backup'].forEach(t => {
+                document.getElementById(`view-${t}`).classList.add('hidden');
+                document.getElementById(`tab-${t}`).className = "flex-1 py-2.5 text-center text-slate-400 hover:text-slate-200 flex items-center justify-center space-x-1 transition";
+            });
+
+            document.getElementById(`view-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-${tab}`).className = "flex-1 py-2.5 text-center text-taxiyellow border-b-2 border-taxiyellow font-bold flex items-center justify-center space-x-1 transition";
+
+            if (tab === 'monthly') {
+                renderMonthlyView();
+            }
+        }
+
+        // --- Data Helpers & LocalStorage ---
+        function saveStateToStorage() {
+            localStorage.setItem('hk_taxi_income_tracker_v3', JSON.stringify(appState.dailyShiftData));
+        }
+
+        function loadStateFromStorage() {
+            const raw = localStorage.getItem('hk_taxi_income_tracker_v3');
+            if (raw) {
+                try {
+                    appState.dailyShiftData = JSON.parse(raw);
+                } catch(e) {
+                    appState.dailyShiftData = {};
+                }
+            }
+        }
+
+        function getOrCreateCurrentDayData() {
+            const dStr = appState.currentDateStr;
+            if (!appState.dailyShiftData[dStr]) {
+                appState.dailyShiftData[dStr] = {
+                    plate: 'AB1234',
+                    shift: '日更',
+                    startTime: '07:00',
+                    endTime: '17:00',
+                    odoStart: 120000,
+                    odoEnd: 120220,
+                    tips: 0,
+                    rent: 420,
+                    fuel: 180,
+                    tolls: 35,
+                    misc: 0,
+                    trips: []
+                };
+            }
+            return appState.dailyShiftData[dStr];
+        }
+
+        // --- Shift Header Functions ---
+        function onDailyDateChange() {
+            appState.currentDateStr = document.getElementById('dailyDateInput').value;
+            updateShiftHeaderView();
+            renderDailyTrips();
+            calculateDailyFinances();
+        }
+
+        function updateShiftHeaderView() {
+            const dayData = getOrCreateCurrentDayData();
+            
+            // Format Header Date
+            const d = new Date(appState.currentDateStr);
+            document.getElementById('headerDateDisplay').innerText = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+            document.getElementById('headerShiftBadge').innerText = dayData.shift || '日更';
+
+            // Populate view fields
+            document.getElementById('dispPlateShift').innerText = `${dayData.plate || '未設車牌'} (${dayData.shift || '日更'})`;
+            document.getElementById('dispShiftTimes').innerText = `${dayData.startTime || '07:00'} ➔ ${dayData.endTime || '17:00'}`;
+
+            // Sync Inputs
+            document.getElementById('inputPlate').value = dayData.plate || '';
+            document.getElementById('inputShift').value = dayData.shift || '日更';
+            document.getElementById('inputStartTime').value = dayData.startTime || '07:00';
+            document.getElementById('inputEndTime').value = dayData.endTime || '17:00';
+            document.getElementById('inputOdoStart').value = dayData.odoStart || '';
+            document.getElementById('inputOdoEnd').value = dayData.odoEnd || '';
+            
+            document.getElementById('inputDailyTips').value = dayData.tips || '';
+            document.getElementById('expRent').value = dayData.rent || '';
+            document.getElementById('expFuel').value = dayData.fuel || '';
+            document.getElementById('expTolls').value = dayData.tolls || '';
+            document.getElementById('expMisc').value = dayData.misc || '';
+
+            calcMileage();
+        }
+
+        function calcMileage() {
+            const start = parseFloat(document.getElementById('inputOdoStart').value) || 0;
+            const end = parseFloat(document.getElementById('inputOdoEnd').value) || 0;
+            const total = (end >= start && start > 0) ? (end - start) : 0;
+            document.getElementById('dispTotalMileage').innerText = `${total} km`;
+        }
+
+        function toggleShiftEdit() {
+            const drawer = document.getElementById('shiftEditDrawer');
+            drawer.classList.toggle('hidden');
+        }
+
+        function saveShiftHeader() {
+            const dayData = getOrCreateCurrentDayData();
+            dayData.plate = document.getElementById('inputPlate').value.trim().toUpperCase();
+            dayData.shift = document.getElementById('inputShift').value;
+            dayData.startTime = document.getElementById('inputStartTime').value;
+            dayData.endTime = document.getElementById('inputEndTime').value;
+            dayData.odoStart = parseFloat(document.getElementById('inputOdoStart').value) || 0;
+            dayData.odoEnd = parseFloat(document.getElementById('inputOdoEnd').value) || 0;
+
+            saveStateToStorage();
+            updateShiftHeaderView();
+            document.getElementById('shiftEditDrawer').classList.add('hidden');
+            showToast("已成功更新班次與車牌資料！");
+        }
+
+        // --- Landmark & Modal Helpers ---
+        function initLandmarkChips() {
+            const container = document.getElementById('landmarkChips');
+            container.innerHTML = PRESET_LANDMARKS.map(lm => `
+                <button type="button" onclick="presetLandmark('${lm}')" class="px-2 py-1 bg-slate-100 hover:bg-amber-100 active:bg-amber-200 border border-slate-200 hover:border-amber-300 rounded-lg text-[11px] text-slate-700 font-medium transition">
+                    + ${lm}
+                </button>
+            `).join('');
+        }
+
+        function presetLandmark(name) {
+            document.getElementById('modalDropoff').value = name;
+        }
+
+        function renderModalPayGrid(selectedId) {
+            appState.selectedModalPayMethod = selectedId || 'Cash';
+            const grid = document.getElementById('modalPayGrid');
+            grid.innerHTML = PAYMENT_METHODS.map(m => {
+                const isSel = m.id === appState.selectedModalPayMethod;
+                return `
+                    <button type="button" onclick="selectModalPay('${m.id}')" class="p-2 rounded-xl border text-left flex items-center space-x-1.5 transition ${isSel ? 'border-taxiyellow bg-amber-50 ring-2 ring-amber-400 font-bold' : 'border-slate-200 bg-white text-slate-600'}">
+                        <i class="${m.icon} text-xs ${isSel ? 'text-amber-600' : 'text-slate-400'}"></i>
+                        <span class="text-[11px] truncate">${m.label}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function selectModalPay(id) {
+            renderModalPayGrid(id);
+        }
+
+        function calcModalSum() {
+            const fare = parseFloat(document.getElementById('modalMeterFare').value) || 0;
+            const sur = parseFloat(document.getElementById('modalSurcharge').value) || 0;
+            document.getElementById('modalTotalSum').innerText = `$${(fare + sur).toFixed(1)}`;
+        }
+
+        // --- Modal Actions ---
+        function openTripModal(editTripId = null) {
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+            
+            document.getElementById('modalTripId').value = editTripId || '';
+            document.getElementById('modalTripTime').value = timeStr;
+            document.getElementById('modalPickup').value = '';
+            document.getElementById('modalDropoff').value = '';
+            document.getElementById('modalMeterFare').value = '';
+            document.getElementById('modalSurcharge').value = '';
+            document.getElementById('modalTotalSum').innerText = '$0.0';
+
+            let payMethod = 'Cash';
+
+            if (editTripId) {
+                const dayData = getOrCreateCurrentDayData();
+                const trip = dayData.trips.find(t => t.id === editTripId);
+                if (trip) {
+                    document.getElementById('modalTitle').innerText = '編輯行程紀錄';
+                    document.getElementById('modalTripTime').value = trip.time || timeStr;
+                    document.getElementById('modalPickup').value = trip.pickup || '';
+                    document.getElementById('modalDropoff').value = trip.dropoff || '';
+                    document.getElementById('modalMeterFare').value = trip.meterFare || '';
+                    document.getElementById('modalSurcharge').value = trip.surcharge || '';
+                    payMethod = trip.payMethod || 'Cash';
+                    document.getElementById('modalTotalSum').innerText = `$${((trip.meterFare||0) + (trip.surcharge||0)).toFixed(1)}`;
+                }
+            } else {
+                document.getElementById('modalTitle').innerText = '新增行程紀錄';
+            }
+
+            renderModalPayGrid(payMethod);
+            document.getElementById('tripModal').classList.remove('hidden');
+        }
+
+        function closeTripModal() {
+            document.getElementById('tripModal').classList.add('hidden');
+        }
+
+        function saveTripModal() {
+            const time = document.getElementById('modalTripTime').value || '12:00';
+            const pickup = document.getElementById('modalPickup').value.trim() || '市區';
+            const dropoff = document.getElementById('modalDropoff').value.trim() || '目的地';
+            const meterFare = parseFloat(document.getElementById('modalMeterFare').value) || 0;
+            const surcharge = parseFloat(document.getElementById('modalSurcharge').value) || 0;
+            const total = meterFare + surcharge;
+            const payMethod = appState.selectedModalPayMethod;
+            const tripId = document.getElementById('modalTripId').value;
+
+            if (total <= 0) {
+                showToast("請輸入有效車費金額！");
+                return;
+            }
+
+            const dayData = getOrCreateCurrentDayData();
+
+            if (tripId) {
+                // Edit existing trip
+                const idx = dayData.trips.findIndex(t => t.id === tripId);
+                if (idx !== -1) {
+                    dayData.trips[idx] = { id: tripId, time, pickup, dropoff, meterFare, surcharge, total, payMethod };
+                }
+            } else {
+                // Add new trip
+                dayData.trips.unshift({
+                    id: 'trip_' + Date.now(),
+                    time,
+                    pickup,
+                    dropoff,
+                    meterFare,
+                    surcharge,
+                    total,
+                    payMethod
+                });
+            }
+
+            saveStateToStorage();
+            closeTripModal();
+            renderDailyTrips();
+            calculateDailyFinances();
+            showToast("成功儲存行程！");
+        }
+
+        // --- Dynamic Daily Trips Renderer ---
+        function renderDailyTrips() {
+            const dayData = getOrCreateCurrentDayData();
+            const container = document.getElementById('dailyTripList');
+            document.getElementById('tripListCount').innerText = dayData.trips.length;
+
+            if (!dayData.trips || dayData.trips.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl p-8 text-center border border-dashed border-slate-300 text-slate-400">
+                        <i class="fa-solid fa-route text-3xl mb-2 text-slate-300"></i>
+                        <p class="text-xs font-semibold">今日暫時未有行程紀錄</p>
+                        <p class="text-[10px] text-slate-400 mt-1">按右上角「新增行程」開始記數</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = dayData.trips.map((t, index) => {
+                const payObj = PAYMENT_METHODS.find(p => p.id === t.payMethod) || PAYMENT_METHODS[0];
+                return `
+                    <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:border-amber-300 transition">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold font-mono">
+                                ${dayData.trips.length - index}
+                            </div>
+                            <div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="font-bold text-xs text-slate-800">${t.pickup} ➔ ${t.dropoff}</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full border ${payObj.color} font-bold">${payObj.label}</span>
+                                </div>
+                                <div class="text-[10px] text-slate-400 mt-0.5 flex space-x-2">
+                                    <span><i class="fa-regular fa-clock mr-1"></i>${t.time}</span>
+                                    <span>錶費: $${t.meterFare}</span>
+                                    ${t.surcharge > 0 ? `<span class="text-amber-600 font-semibold">+附加費: $${t.surcharge}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-base font-black text-slate-800 font-mono">$${t.total.toFixed(1)}</span>
+                            <div class="flex space-x-1">
+                                <button onclick="openTripModal('${t.id}')" class="p-1.5 text-slate-400 hover:text-amber-600"><i class="fa-solid fa-pen-to-square text-xs"></i></button>
+                                <button onclick="deleteTrip('${t.id}')" class="p-1.5 text-slate-400 hover:text-rose-600"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function deleteTrip(tripId) {
+            const dayData = getOrCreateCurrentDayData();
+            dayData.trips = dayData.trips.filter(t => t.id !== tripId);
+            saveStateToStorage();
+            renderDailyTrips();
+            calculateDailyFinances();
+            showToast("已刪除該筆行程！");
+        }
+
+        // --- Daily Finance Calculations Engine ---
+        function calculateDailyFinances() {
+            const dayData = getOrCreateCurrentDayData();
+
+            // Save Inputs
+            dayData.tips = parseFloat(document.getElementById('inputDailyTips').value) || 0;
+            dayData.rent = parseFloat(document.getElementById('expRent').value) || 0;
+            dayData.fuel = parseFloat(document.getElementById('expFuel').value) || 0;
+            dayData.tolls = parseFloat(document.getElementById('expTolls').value) || 0;
+            dayData.misc = parseFloat(document.getElementById('expMisc').value) || 0;
+
+            let cashTotal = 0;
+            let epayTotal = 0;
+            const payBreakdown = {};
+
+            PAYMENT_METHODS.forEach(m => payBreakdown[m.id] = 0);
+
+            (dayData.trips || []).forEach(t => {
+                const amt = t.total || 0;
+                payBreakdown[t.payMethod] = (payBreakdown[t.payMethod] || 0) + amt;
+                if (t.payMethod === 'Cash') {
+                    cashTotal += amt;
+                } else {
+                    epayTotal += amt;
+                }
+            });
+
+            const grossA = cashTotal + epayTotal + dayData.tips;
+            const expensesB = dayData.rent + dayData.fuel + dayData.tolls + dayData.misc;
+            const netProfit = grossA - expensesB;
+
+            // Update UI
+            document.getElementById('dailyCashTotal').innerText = `$${cashTotal.toFixed(1)}`;
+            document.getElementById('dailyEpayTotal').innerText = `$${epayTotal.toFixed(1)}`;
+            document.getElementById('dailyGrossRevenueA').innerText = `$${grossA.toFixed(1)}`;
+            document.getElementById('dailyTotalExpensesB').innerText = `$${expensesB.toFixed(1)}`;
+            document.getElementById('dailyNetProfitDisplay').innerText = `$${netProfit.toFixed(1)}`;
+
+            // Render Payment Breakdown Badges
+            const grid = document.getElementById('payBreakdownGrid');
+            grid.innerHTML = PAYMENT_METHODS.map(m => `
+                <div class="bg-white p-1.5 rounded-lg border border-slate-200 text-center">
+                    <span class="text-[9px] text-slate-400 block truncate">${m.label}</span>
+                    <span class="font-bold text-slate-700 font-mono">$${(payBreakdown[m.id] || 0).toFixed(0)}</span>
+                </div>
+            `).join('');
+
+            saveStateToStorage();
+        }
+
+        // --- Monthly Summary Logic ---
+        function initMonthlySelectors() {
+            const yearSelect = document.getElementById('monthlyYearSelect');
+            const monthSelect = document.getElementById('monthlyMonthSelect');
+
+            const currentYear = new Date().getFullYear();
+            yearSelect.innerHTML = [currentYear - 1, currentYear, currentYear + 1].map(y => 
+                `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}年</option>`
+            ).join('');
+
+            const currentMonth = new Date().getMonth() + 1;
+            monthSelect.innerHTML = Array.from({length: 12}, (_, i) => i + 1).map(m => 
+                `<option value="${m}" ${m === currentMonth ? 'selected' : ''}>${m}月</option>`
+            ).join('');
+        }
+
+        function renderMonthlyView() {
+            const year = parseInt(document.getElementById('monthlyYearSelect').value);
+            const month = parseInt(document.getElementById('monthlyMonthSelect').value);
+
+            let totalGross = 0;
+            let totalExp = 0;
+            let daysWithRecord = 0;
+            const payTotals = {};
+            PAYMENT_METHODS.forEach(m => payTotals[m.id] = 0);
+
+            const daysInMonth = new Date(year, month, 0).getDate();
+            const tableBody = document.getElementById('mDailyTableBody');
+            let rowsHtml = '';
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                const data = appState.dailyShiftData[dStr];
+
+                if (data) {
+                    daysWithRecord++;
+                    let dayCash = 0, dayEpay = 0;
+                    (data.trips || []).forEach(t => {
+                        payTotals[t.payMethod] = (payTotals[t.payMethod] || 0) + (t.total || 0);
+                        if (t.payMethod === 'Cash') dayCash += t.total;
+                        else dayEpay += t.total;
+                    });
+
+                    const dayGross = dayCash + dayEpay + (data.tips || 0);
+                    const dayExp = (data.rent || 0) + (data.fuel || 0) + (data.tolls || 0) + (data.misc || 0);
+                    const dayNet = dayGross - dayExp;
+
+                    totalGross += dayGross;
+                    totalExp += dayExp;
+
+                    // Main Pay Method Tag
+                    let topPay = 'Cash';
+                    let topAmt = 0;
+                    PAYMENT_METHODS.forEach(m => {
+                        let sum = (data.trips || []).filter(t => t.payMethod === m.id).reduce((a,b) => a + b.total, 0);
+                        if (sum > topAmt) { topAmt = sum; topPay = m.id; }
+                    });
+                    const payObj = PAYMENT_METHODS.find(p => p.id === topPay) || PAYMENT_METHODS[0];
+
+                    rowsHtml += `
+                        <tr class="hover:bg-amber-50/50 cursor-pointer transition" onclick="jumpToDate('${dStr}')">
+                            <td class="p-2.5 text-center font-bold text-slate-800">${day}日</td>
+                            <td class="p-2.5">${data.shift || '日更'}</td>
+                            <td class="p-2.5 text-right font-bold text-emerald-600">$${dayGross.toFixed(0)}</td>
+                            <td class="p-2.5 text-right font-bold text-rose-600">$${dayExp.toFixed(0)}</td>
+                            <td class="p-2.5 text-right font-bold text-slate-800 font-mono">$${dayNet.toFixed(0)}</td>
+                            <td class="p-2.5"><span class="text-[10px] px-2 py-0.5 rounded border ${payObj.color}">${payObj.label}</span></td>
+                            <td class="p-2.5 text-center text-amber-600 font-bold hover:underline">檢視</td>
+                        </tr>
+                    `;
+                } else {
+                    rowsHtml += `
+                        <tr class="text-slate-300">
+                            <td class="p-2.5 text-center">${day}日</td>
+                            <td class="p-2.5">--</td>
+                            <td class="p-2.5 text-right">$0</td>
+                            <td class="p-2.5 text-right">$0</td>
+                            <td class="p-2.5 text-right">$0</td>
+                            <td class="p-2.5">--</td>
+                            <td class="p-2.5 text-center">--</td>
+                        </tr>
+                    `;
+                }
+            }
+
+            tableBody.innerHTML = rowsHtml;
+
+            // Summary Stats
+            const totalNet = totalGross - totalExp;
+            const avgNet = daysWithRecord > 0 ? (totalNet / daysWithRecord) : 0;
+
+            document.getElementById('mStatGross').innerText = `$${totalGross.toFixed(0)}`;
+            document.getElementById('mStatExpenses').innerText = `$${totalExp.toFixed(0)}`;
+            document.getElementById('mStatNet').innerText = `$${totalNet.toFixed(0)}`;
+            document.getElementById('mStatAvg').innerText = `$${avgNet.toFixed(0)} / 日`;
+
+            // Payment Breakdown Progress Bars
+            document.getElementById('mPayMethodTotalLabel').innerText = `總營業額: $${totalGross.toFixed(0)}`;
+            const barContainer = document.getElementById('mPayMethodBars');
+            barContainer.innerHTML = PAYMENT_METHODS.map(m => {
+                const amt = payTotals[m.id] || 0;
+                const pct = totalGross > 0 ? ((amt / totalGross) * 100).toFixed(1) : 0;
+                return `
+                    <div>
+                        <div class="flex justify-between text-[11px] mb-1 font-medium">
+                            <span class="text-slate-700">${m.label}</span>
+                            <span class="text-slate-500 font-mono">$${amt.toFixed(0)} (${pct}%)</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div class="bg-amber-400 h-2 rounded-full" style="width: ${pct}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function jumpToDate(dStr) {
+            document.getElementById('dailyDateInput').value = dStr;
+            onDailyDateChange();
+            switchTab('daily');
+        }
+
+        // --- Export & Backup Functions ---
+        function exportToCSV() {
+            let csvContent = "\uFEFF"; // UTF-8 BOM
+            csvContent += "日期,車牌,班次,開工時間,收工時間,總里程(km),現金收入,電子支付收入,小費,總營業額,車租,油費,隧道費,雜項,總開支,純利\n";
+
+            Object.keys(appState.dailyShiftData).sort().forEach(dStr => {
+                const d = appState.dailyShiftData[dStr];
+                let cash = 0, epay = 0;
+                (d.trips || []).forEach(t => {
+                    if (t.payMethod === 'Cash') cash += t.total;
+                    else epay += t.total;
+                });
+                const gross = cash + epay + (d.tips || 0);
+                const exp = (d.rent || 0) + (d.fuel || 0) + (d.tolls || 0) + (d.misc || 0);
+                const net = gross - exp;
+                const mileage = (d.odoEnd >= d.odoStart) ? (d.odoEnd - d.odoStart) : 0;
+
+                csvContent += `"${dStr}","${d.plate || ''}","${d.shift || ''}","${d.startTime || ''}","${d.endTime || ''}",${mileage},${cash},${epay},${d.tips || 0},${gross},${d.rent || 0},${d.fuel || 0},${d.tolls || 0},${d.misc || 0},${exp},${net}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `taxi_income_report_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("已成功匯出 CSV 報表！");
+        }
+
+        function exportBackupJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState.dailyShiftData, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `taxi_backup_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+            showToast("已下載 JSON 數據備份！");
+        }
+
+        function importBackupJSON(event) {
+            const file = event ? event.target.files[0] : document.getElementById('importFileInput').files[0];
+            if (!file) {
+                showToast("請先選擇 JSON 備份檔案！");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (parsed && typeof parsed === 'object') {
+                        appState.dailyShiftData = parsed;
+                        saveStateToStorage();
+                        updateShiftHeaderView();
+                        renderDailyTrips();
+                        calculateDailyFinances();
+                        showToast("成功還原 JSON 數據！");
+                    } else {
+                        showToast("無效的備份檔案格式！");
+                    }
+                } catch(err) {
+                    showToast("讀取檔案失敗！");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Pre-populate sample Excel data from user request
+        function loadSampleExcelData(notify = true) {
+            const todayStr = appState.currentDateStr;
+            appState.dailyShiftData[todayStr] = {
+                plate: 'DC8888',
+                shift: '日更',
+                startTime: '07:00',
+                endTime: '17:00',
+                odoStart: 154000,
+                odoEnd: 154215,
+                tips: 20,
+                rent: 450,
+                fuel: 160,
+                tolls: 35,
+                misc: 20,
+                trips: [
+                    {
+                        id: 'sample_trip_1',
+                        time: '07:30',
+                        pickup: '元朗形點',
+                        dropoff: '尖沙咀海港城',
+                        meterFare: 210,
+                        surcharge: 35,
+                        total: 245,
+                        payMethod: 'Cash'
+                    },
+                    {
+                        id: 'sample_trip_2',
+                        time: '09:15',
+                        pickup: '中環 LKF',
+                        dropoff: '香港國際機場',
+                        meterFare: 315,
+                        surcharge: 15,
+                        total: 330,
+                        payMethod: 'Octopus'
+                    },
+                    {
+                        id: 'sample_trip_3',
+                        time: '11:40',
+                        pickup: '觀塘 APM',
+                        dropoff: '銅鑼灣 SOGO',
+                        meterFare: 140,
+                        surcharge: 25,
+                        total: 165,
+                        payMethod: 'Alipay'
+                    }
+                ]
+            };
+
+            saveStateToStorage();
+            updateShiftHeaderView();
+            renderDailyTrips();
+            calculateDailyFinances();
+            if (notify) showToast("已成功載入範例數據！");
+        }
+
+        function clearAllSystemData() {
+            if (confirm("確定要清空所有紀錄嗎？此動作不可逆轉！")) {
+                appState.dailyShiftData = {};
+                saveStateToStorage();
+                updateShiftHeaderView();
+                renderDailyTrips();
+                calculateDailyFinances();
+                showToast("所有系統數據已完全清空");
+            }
+        }
+
+        // Helper Toast Notification
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('opacity-0');
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
